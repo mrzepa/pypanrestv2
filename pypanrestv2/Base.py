@@ -431,7 +431,7 @@ class PAN:
                     break
 
                 progress = job['response']['result']['job']['progress']
-                logger.info(f"Job {job_id} is {progress}% complete.")
+                logger.info(f"On device {self.hostname}, Job {job_id} is {progress}% complete.")
 
             except requests.exceptions.RequestException as e:
                 logger.error(f"Error polling job status: {e}")
@@ -720,7 +720,9 @@ class Firewall(PAN):
             Attributes:
                 None
             """
+            logger.debug(f'Firewall {self.hostname} attempting to download version {v2}')
             op_download = self.op('request system software download version', value=v2, wait=True)
+            logger.debug(f'Firewall {self.hostname} status of download operation: {op_download}')
             if op_download['status'] == 'success':
                 op_install = self.op('request system software install version', value=v2, wait=True)
                 if op_install['status'] == 'success':
@@ -748,7 +750,7 @@ class Firewall(PAN):
                             loop += 1
                             continue
                         loop += 1
-                        if loop > 10:
+                        if loop > 20:
                             return {'status': 'failure',
                                     'msg': f'Device {self.hostname} failed to come back after reboot.'}
 
@@ -766,11 +768,15 @@ class Firewall(PAN):
         v2_components = new_version.split('.')
         v1_major = v1_components[0] + '.' + v1_components[1]
         v2_major = v2_components[0] + '.' + v2_components[1]
+        logger.debug(f'Attempting to upgrade {self.hostname} from {v1_major} to {v2_major}.')
         if v1_major != v2_major:
             # as of PANOS 10.2 you no longer need to step upgrade.
             if float(v1_major) >= 10.2:
+                logger.debug(f'Firewall {self.hostname} is at a version greater than or equal to 10.2.')
                 v2 = f'{v2_major}.0'
+                logger.debug(f'Firewall {self.hostname} is attempting to download to {v2}.')
                 op_download = self.op('request system software download version', value=v2, wait=True)
+                logger.debug(f'Result of download: {op_download}')
                 if op_download['status'] == 'success':
                     result = download_and_install(new_version)
                     return result
@@ -806,9 +812,9 @@ class Firewall(PAN):
                 v1_major = upgrade_map[v1_major]
         else:
             # The two major version are equal, so just download and install the patch.
+            logger.debug(f'Firewall {self.hostname} is already at the same major version as {new_version}. ')
             result = download_and_install(new_version)
             return result
-
 
     def sip_disable_alg(self) -> str:
         """
