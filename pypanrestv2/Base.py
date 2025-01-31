@@ -766,12 +766,18 @@ class Firewall(PAN):
                     'msg': f'The device {self.hostname} is already at version {new_version}. Nothing to do.'}
         # Get current list of available images to download
         op_check = self.op('request system software check')
-        ic(op_check)
+        if op_check['status'] == 'success':
+            logger.debug(f'Firewall {self.hostname} status of check operation: success')
+        else:
+            logger.error(f'Firewall {self.hostname} status of check operation: {op_check}')
+            return {'status': 'failure',
+                    'msg': f'Device {self.hostname} failed to retrieve available software versions.'}
+
         v1_components = self.SystemInfo['sw-version'].split('.')
         v2_components = new_version.split('.')
         v1_major = v1_components[0] + '.' + v1_components[1]
         v2_major = v2_components[0] + '.' + v2_components[1]
-        logger.debug(f'Attempting to upgrade {self.hostname} from {v1_major} to {v2_major}.')
+        logger.debug(f'Attempting to upgrade {self.hostname} from {self.SystemInfo['sw-version']} to {new_version}.')
         if v1_major != v2_major:
             # as of PANOS 10.2 you no longer need to step upgrade.
             if float(v1_major) >= 10.2:
