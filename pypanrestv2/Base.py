@@ -764,6 +764,9 @@ class Firewall(PAN):
             # the current and requested new version are the same, nothing to do.
             return {'status': 'success',
                     'msg': f'The device {self.hostname} is already at version {new_version}. Nothing to do.'}
+        # Get current list of available images to download
+        op_check = self.op('request system software check')
+        ic(op_check)
         v1_components = self.SystemInfo['sw-version'].split('.')
         v2_components = new_version.split('.')
         v1_major = v1_components[0] + '.' + v1_components[1]
