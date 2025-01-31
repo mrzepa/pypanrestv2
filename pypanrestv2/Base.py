@@ -725,12 +725,13 @@ class Firewall(PAN):
             logger.debug(f'Firewall {self.hostname} status of download operation: {op_download}')
             if op_download['status'] == 'success':
                 op_install = self.op('request system software install version', value=v2, wait=True)
+                logger.debug(f'Firewall {self.hostname} status of install operation: {op_install}')
                 if op_install['status'] == 'success':
                     self.op(f'request restart system')
                     loop = 0
                     while True:
                         # Wait for firewall to complete rebooting
-                        logger.info('Waiting for firewall to come back after reboot.')
+                        logger.info(f'Waiting for firewall {self.hostname} to come back after reboot.')
                         if loop == 0:
                             time.sleep(300)
                         else:
