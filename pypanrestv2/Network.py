@@ -407,7 +407,7 @@ class DHCPServers(Network):
             if 'lease' not in value or not isinstance(value['lease'], dict):
                 raise ValueError("Lease must be present and a dictionary.")
 
-            lease_keys = value['lease'].keys()
+            lease_keys = list(value['lease'].keys())
             if len(lease_keys) != 1 or (lease_keys[0] not in ['unlimited', 'timeout']):
                 raise ValueError("Lease must contain exactly one key: either 'unlimited' or 'timeout'.")
 

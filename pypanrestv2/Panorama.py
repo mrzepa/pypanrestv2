@@ -69,7 +69,7 @@ class TemplateStacks(PanoramaTab):
 
     def add_device(self, name: str, variable) -> None:
         """
-        Adds a device and its associated variable to the devices entry.
+        Adds a device and its associated variable to the 'devices' entry.
 
         This method validates the structure of the given variable, creates a new
         device entry containing the specified name and variable, and appends it
