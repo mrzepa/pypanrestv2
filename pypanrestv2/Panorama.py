@@ -84,9 +84,12 @@ class TemplateStacks(PanoramaTab):
             None
         """
         if self.validate_variable_structure(variable):
+            logger.debug(f'Adding device {name} to template stack {self.name}')
             device_entry = {'@name': name, 'variable': variable}
             self.devices['entry'].append(device_entry)
             self.entry['devices'] = self.devices
+        else:
+            logger.debug(f'Invalid variable structure for device {name} in template stack {self.name}. Not adding.')
 
     def update_variable(self, name: str, variable_type: str, variable_value: str):
         if variable_type in self.variable_types:
