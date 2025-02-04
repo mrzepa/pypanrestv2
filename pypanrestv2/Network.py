@@ -114,29 +114,6 @@ class Network(Base, PAN):
         except ValueError:
             return False
 
-    @staticmethod
-    def _validate_interface_address(ip: str) -> bool:
-        # If the IP address starts with '$', it's considered a valid Palo Alto variable
-        if ip.startswith('$'):
-            return True
-
-        # Validate the IP address
-        try:
-            ipaddress.ip_interface(ip)
-            return True
-        except ValueError:
-            return False
-    @staticmethod
-    def _validate_subnet_mask(mask):
-        # If the IP address starts with '$', it's considered a valid Palo Alto variable
-        if ip.startswith('$'):
-            return True
-        try:
-            # Convert the subnet mask to an IP address to check its validity
-            ipaddress.ip_address(mask)
-            return True
-        except ValueError:
-            return False
 class Zones(Network):
     valid_network = ['tap', 'virtual-wire', 'layer2', 'layer3', 'tunnel', 'external']
 
@@ -435,7 +412,7 @@ class DHCPServers(Network):
                                 raise ValueError(f"{key}.{sub_key} must be a valid IP address.")
 
             # Validate 'subnet-mask'
-            if 'subnet-mask' in value and not self._validate_subnet_mask(value['subnet-mask']):
+            if 'subnet-mask' in value and not self._validate_ip_address(value['subnet-mask']):
                 raise ValueError("subnet-mask must be a valid subnet mask.")
 
             if 'dns-suffix' in value:
