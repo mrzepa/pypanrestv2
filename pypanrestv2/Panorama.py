@@ -90,6 +90,7 @@ class TemplateStacks(PanoramaTab):
             self.entry['devices'] = self.devices
         else:
             logger.debug(f'Invalid variable structure for device {name} in template stack {self.name}. Not adding.')
+            logger.debug(f'Varibles provide: {variable}')
 
     def update_variable(self, name: str, variable_type: str, variable_value: str):
         if variable_type in self.variable_types:
@@ -194,16 +195,21 @@ class TemplateStacks(PanoramaTab):
 
     def validate_variable_structure(self, variable: Dict) -> bool:
         if not isinstance(variable, dict) or 'entry' not in variable:
+            logger.debug(f'Variable is not a Dictionary or entry not in variable.')
             return False
         if not isinstance(variable['entry'], list):
+            logger.debug(f'Variable entry is not a list.')
             return False
         for item in variable['entry']:
             if not isinstance(item, dict) or '@name' not in item or 'type' not in item:
+                logger.debug(f'Missing keys @name and type. You provided {item}')
                 return False
             if not isinstance(item['type'], dict) or len(item['type']) != 1:
+                logger.debug(f'Key type must be a dictionary with one key. You provided {item["type"]}.')
                 return False
             type_key = next(iter(item['type']))
             if type_key not in self.variable_types or not isinstance(item['type'][type_key], str):
+                logger.debug(f'Key type is not valid. You provided {type_key}')
                 return False
         return True
 
