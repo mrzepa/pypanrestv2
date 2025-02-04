@@ -211,7 +211,8 @@ class TemplateStacks(PanoramaTab):
                 return False
             type_key = next(iter(item['type']))
             if type_key not in self.variable_types or not isinstance(item['type'][type_key], str):
-                logger.debug(f'Key type is not valid. You provided {type_key} as type {type(item["type"][type_key])}')
+                logger.debug(f'Key type is not valid. For variable {item['@name']}, you provided {type_key} '
+                             f'as type {type(item["type"][type_key])}. Value is {item["type"][type_key]}.')
                 return False
         return True
 
