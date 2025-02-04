@@ -67,7 +67,7 @@ class TemplateStacks(PanoramaTab):
         self.devices: Dict = {'entry': []}
         self.variable: Dict = {'entry': []}
 
-    def add_device(self, name: str, variable) -> None:
+    def add_device(self, name: str, variable: dict[list]) -> bool:
         """
         Adds a device and its associated variable to the 'devices' entry.
 
@@ -81,16 +81,18 @@ class TemplateStacks(PanoramaTab):
             variable: The data or configuration associated with the device.
 
         Returns:
-            None
+            bool
         """
         if self.validate_variable_structure(variable):
             logger.debug(f'Adding device {name} to template stack {self.name}')
             device_entry = {'@name': name, 'variable': variable}
             self.devices['entry'].append(device_entry)
             self.entry['devices'] = self.devices
+            return True
         else:
             logger.debug(f'Invalid variable structure for device {name} in template stack {self.name}. Not adding.')
             logger.debug(f'Varibles provide: {variable}')
+            return False
 
     def update_variable(self, name: str, variable_type: str, variable_value: str):
         if variable_type in self.variable_types:
@@ -209,7 +211,7 @@ class TemplateStacks(PanoramaTab):
                 return False
             type_key = next(iter(item['type']))
             if type_key not in self.variable_types or not isinstance(item['type'][type_key], str):
-                logger.debug(f'Key type is not valid. You provided {type_key}')
+                logger.debug(f'Key type is not valid. You provided {type_key} as type {type(item["type"][type_key])}')
                 return False
         return True
 
