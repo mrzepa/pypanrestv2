@@ -740,6 +740,8 @@ class Firewall(PAN):
                             new_sysinfo = self.op('show system info')
                             if new_sysinfo.get('result'):
                                 if new_sysinfo['status'] == 'success':
+                                    # Make sure the current object's version attribute is updated.
+                                    self.ver = self.ver_from_sw_version(self.SystemInfo['sw-version'])
                                     return {'status': 'success',
                                             'msg': f'Device {self.hostname} upgraded to {new_version}.'}
                         except requests.exceptions.ConnectionError:
