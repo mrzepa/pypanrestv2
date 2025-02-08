@@ -50,12 +50,21 @@ class Templates(PanoramaTab):
 
     @settings.setter
     def settings(self, value):
-        if not isinstance(value, str):
-            raise TypeError(f'The attribute settings must be of type str.')
-        if not value.startswith('vsys'):
-            raise ValueError(f'The attribute settings must be a vsys.')
-        self._settings = value
-        self.entry.update({'settings': {'default-vsys': value}})
+        if isinstance(value, dict):
+            if 'default-vsys' in value:
+                self._settings = value
+                self.entry.update({'settings': value})
+                return
+        elif isinstance(value, str):
+            if not value.startswith('vsys'):
+                raise ValueError(f'The attribute settings must be a vsys.')
+            self._settings = {'default-vsys': value}
+            self.entry.update({'settings': {'default-vsys': value}})
+            return
+        else:
+            raise TypeError(f'The attribute settings must be of type str, not {type(value)}.')
+
+
 
 class TemplateStacks(PanoramaTab):
     variable_types = ['ip-netmask', 'ip-range', 'fqdn', 'group-id', 'device-priority', 'device-id', 'interface',

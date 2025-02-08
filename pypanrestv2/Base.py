@@ -210,12 +210,26 @@ class PAN:
     def base_url(self, value: str):
         # Normalize the value by stripping the scheme (if present) for validation
         stripped_value = value.split("//")[-1]
-        # Initialize a flag to indicate whether the provided value is an IP address
+        # Split stripped value to isolate the hostname/IP and the rest of the path
+        hostname_and_port = stripped_value.split('/')[0]
+
+        # Extract hostname/IP and port (if present)
+        if ':' in hostname_and_port:
+            hostname, port = hostname_and_port.split(':', 1)
+        else:
+            hostname, port = hostname_and_port, None
+
+        # Validate port if it exists
+        if port:
+            if not port.isdigit() or not (1 <= int(port) <= 65535):
+                raise ValueError(f"Provided port {port} in base_url {value} is invalid.")
+
+        # Initialize a flag to indicate whether the provided hostname is an IP address
         is_ip_address = False
 
-        # Check if the stripped value is an IP address
+        # Check if the hostname is an IP address
         try:
-            ipaddress.ip_address(stripped_value.split('/')[0])  # Extract and check the IP part only
+            ipaddress.ip_address(hostname)  # Validate as IP address
             is_ip_address = True
         except ValueError:
             is_ip_address = False
@@ -223,16 +237,16 @@ class PAN:
         # If not an IP address, attempt DNS resolution
         if not is_ip_address:
             try:
-                # Extract hostname from URL for DNS lookup
-                hostname = stripped_value.split("/")[0].split(':')[0]
+                # Perform DNS resolution
                 dns.resolver.resolve(hostname, 'A')
             except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
-                raise ValueError(f"Provided base_url {value} is neither a valid IP address nor a resolvable URL.")
+                raise ValueError(f"Provided base_url {value} is neither a valid IP address nor a resolvable hostname.")
 
         # Prepend https:// if missing
         if not value.startswith('https://'):
             value = 'https://' + value
 
+        # Assign the validated and normalized base_url to the instance attribute
         self._base_url = value
 
     @property
