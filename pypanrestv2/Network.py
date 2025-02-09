@@ -555,7 +555,13 @@ class Interfaces(Network):
                 raise TypeError("The 'entry' key must map to a list.")
 
             # Validate each address in the list
-            for address in value['entry']['@name']:
+            for entry in value['entry']:
+                # Ensure each item in the list is a dictionary and contains the '@name' key
+                if not isinstance(entry, dict) or '@name' not in entry:
+                    raise ValueError("Each entry in the 'entry' list must be a dictionary with an '@name' key.")
+
+                # Validate the '@name' value (the IP address)
+                address = entry['@name']
                 if not self._validate_interface_address(address):
                     raise ValueError(f"{address} is not a valid IP address, Palo Alto variable, or interface address.")
 
