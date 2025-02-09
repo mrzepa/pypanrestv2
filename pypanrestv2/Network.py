@@ -546,7 +546,6 @@ class Interfaces(Network):
     @ip.setter
     def ip(self, value: str) -> None:
         if value:
-            ic(value)
             if not isinstance(value, dict):
                 raise TypeError("IP must be a dictionary with an 'entry' key.")
             if 'entry' not in value:
