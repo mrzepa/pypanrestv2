@@ -1354,16 +1354,16 @@ class Base:
     def vsys(self, value: str) -> None:
         if value:
             # Check if the PANDevice is of type Firewall
-            if not isinstance(self.PANDevice, Firewall):
-                raise TypeError("vsys can only be set for Firewall devices.")
+            # if not isinstance(self.PANDevice, Firewall):
+            #     raise TypeError("vsys can only be set for Firewall devices.")
 
-            # Check if the location is 'vsys' or 'panorama-pushed'
-            if self.location not in ['vsys', 'panorama-pushed']:
-                raise ValueError("vsys can only be set when location is 'vsys' or 'panorama-pushed'.")
+            # # Check if the location is 'vsys' or 'panorama-pushed'
+            # if self.location not in ['vsys', 'panorama-pushed']:
+            #     raise ValueError("vsys can only be set when location is 'vsys' or 'panorama-pushed'.")
 
             # Check if the provided vsys value is in the PANDevice.vsys_list
-            if value not in self.PANDevice.vsys_list:
-                raise ValueError(f"Invalid vsys: {value}. Must be one of: {self.PANDevice.vsys_list}")
+            # if value not in self.PANDevice.vsys_list:
+            #     raise ValueError(f"Invalid vsys: {value}. Must be one of: {self.PANDevice.vsys_list}")
 
             self._vsys = value
             self.entry.update({'vsys': value})
