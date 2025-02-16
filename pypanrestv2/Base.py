@@ -1532,17 +1532,42 @@ class Base:
         """
         params = self._build_params()
         data = {'entry': self.entry}
-
+        print(f'Attempting to edit {self.__class__.__name__}. URL: {self.base_url}, Params: {params}, Data: {data}')
         try:
+            # Log request details for debugging
+            logging.debug(
+                f'Attempting to edit {self.__class__.__name__}. URL: {self.base_url}, Params: {params}, Data: {data}')
             response = self.rest_request('PUT', params=params, json=data)
-        except requests.exceptions.RequestException as e:
-            logging.error(f'Failed to edit {self.__class__.__name__}: {e}')
-            raise NetworkRequestError(f'Network request failed for {self.base_url}', {'error': str(e)})
 
+            logging.debug(f'Received response: {response}')
+        except requests.exceptions.HTTPError as e:
+            # Log and raise a detailed network error
+            logging.error(f'Network request failed for {self.base_url}. Exception: {e}')
+            # Additional details for debugging
+            raise NetworkRequestError(
+                f"Network request failed for {self.base_url}",
+                {
+                    'error': str(e),
+                    'url': self.base_url,
+                    'params': params,
+                    'data': data
+                }
+            )
+
+        # Check response status
         if response.get('@status') != 'success':
-            logging.error(f'API returned error during edit: {response.get("message", "Unknown error")}')
-            raise APIResponseError('API request did not return success during edit', response)
+            # Log detailed error about the API response
+            logging.error(f"API error during edit. Params: {params}, Data: {data}, Response: {response}")
+            raise APIResponseError(
+                "API request did not return success during edit",
+                {
+                    'response': response,
+                    'params': params,
+                    'data': data
+                }
+            )
 
+        logging.debug(f'Edit successful for {self.__class__.__name__}: {self.entry}')
         return True
 
     def delete(self) -> bool:

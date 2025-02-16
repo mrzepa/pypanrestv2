@@ -121,7 +121,7 @@ class Zones(Network):
         super().__init__(PANDevice, max_name_length=32, **kwargs)
         self.enable_user_identification: str = kwargs.get('enable_user_identification', 'no')
         self.enable_device_identification: str = kwargs.get('enable_device_identification', 'no')
-        self.network: dict = kwargs.get('network')
+        self.network: dict = kwargs.get('network', {})
         self.user_acl: dict = kwargs.get('user_acl')
         self.device_acl: dict = kwargs.get('device_acl')
 
@@ -135,7 +135,29 @@ class Zones(Network):
             if not isinstance(value, dict):
                 raise ValueError("Network must be a dictionary.")
 
-            required_keys = ['zone-protection-profile', 'enable-packet-buffer-protection', 'log-setting']
+            # Define the default values for 'prenat-identification'
+            default_prenat_identification = {
+                'enable-prenat-user-identification': 'no',
+                'enable-prenat-device-identification': 'no',
+                'enable-prenat-source-policy-lookup': 'no',
+                'enable-prenat-source-ip-downstream': 'no',
+            }
+
+            # Add default 'prenat-identification' if not provided
+            if 'prenat-identification' not in value:
+                value['prenat-identification'] = default_prenat_identification
+
+            if 'zone-protection-profile' not in value:
+                value['zone-protection-profile'] = ''
+
+            if 'enable-packet-buffer-protection' not in value:
+                value['enable-packet-buffer-protection'] = 'yes'
+
+            if 'net-inspection' not in value:
+                value['net-inspection'] = 'no'
+
+            required_keys = ['zone-protection-profile', 'enable-packet-buffer-protection', 'log-setting',
+                             'net-inspection', 'prenat-identification']
             if not all(key in value for key in required_keys):
                 raise KeyError(f"Network dictionary must contain the keys: {', '.join(required_keys)}")
 
@@ -145,16 +167,45 @@ class Zones(Network):
             if len(value.get('log-setting', '')) > 63:
                 raise ValueError("log-setting value must be 63 characters or fewer")
 
+            if value.get('net-inspection', 'no') not in self.yes_no:
+                raise ValueError("net-inspection must be 'yes' or 'no'")
+
+            if not isinstance(value.get('prenat-identification'), dict):
+                raise ValueError("prenat-identification must be a dictionary")
+
+            parent_id_required_keys = ['enable-prenat-user-identification', 'enable-prenat-device-identification',
+                                       'enable-prenat-source-policy-lookup', 'enable-prenat-source-ip-downstream']
+
+            # if not all(key in value for key in parent_id_required_keys):
+            #     raise KeyError(f"prenat-identification dictionary must contain the keys: {', '.join(parent_id_required_keys)}, provided keys: {', '.join(value.get('prenat-identification', {}).keys())}")
+
+            if value.get('prenat-identification', {}).get('enable-prenat-user-identification', 'no') not in self.yes_no:
+                raise ValueError("enable-prenat-user-identification must be 'yes' or 'no'")
+            if value.get('prenat-identification', {}).get('enable-prenat-device-identification', 'no') not in self.yes_no:
+                raise ValueError("enable-prenat-device-identification must be 'yes' or 'no'")
+            if value.get('prenat-identification', {}).get('enable-prenat-source-policy-lookup', 'no') not in self.yes_no:
+                raise ValueError("enable-prenat-source-policy-lookup must be 'yes' or 'no'")
+            if value.get('prenat-identification', {}).get('enable-prenat-source-ip-downstream', 'no') not in self.yes_no:
+                raise ValueError("enable-prenat-source-ip-downstream must be 'yes' or 'no'")
+
             network_keys = [key for key in value.keys() if key in self.valid_network]
             if len(network_keys) != 1:
                 raise ValueError("Network dictionary must contain exactly one key from valid_network")
 
             network_key = network_keys[0]
-            if network_key != 'tunnel' and not isinstance(value[network_key].get('member', []), list):
-                raise ValueError(
-                    f"The value for '{network_key}' must be a dictionary with a 'member' key containing a list of strings.")
-            elif network_key == 'tunnel' and value[network_key]:
+            # Default behavior when key is 'tunnel'
+            if network_key == 'tunnel' and value[network_key]:
                 raise ValueError("'tunnel' key must be associated with an empty dictionary")
+
+            # Handle non-'tunnel' network_key (e.g., 'layer3')
+            if network_key != 'tunnel':
+                # Allow empty dictionaries (new Zones)
+                network_member = value[network_key].get('member', None)
+                if network_member is not None and not isinstance(network_member, list):
+                    raise ValueError(
+                        f"The value for '{network_key}' must be a dictionary with a 'member' key containing a list of strings, "
+                        f"or an empty dictionary for newly created Zones."
+                    )
 
             self._network = value
             self.entry.update({'network': value})
@@ -220,6 +271,43 @@ class Zones(Network):
                 # Pop the key if the member list is empty
                 if not acl_dict[key]['member']:
                     acl_dict.pop(key)
+
+    def add_interface(self, interface_name: str) -> dict:
+        """
+        Adds a named interface to the zone, updating self.entry['network'] under the appropriate network type key.
+        Ensures compliance with the constraints of the network setter.
+
+        Args:
+            interface_name (str): The name of the interface to add.
+
+        Returns:
+            dict: The updated network dictionary.
+        """
+        if not isinstance(interface_name, str) or not interface_name.strip():
+            raise ValueError("Interface name must be a non-empty string.")
+
+        network_keys = [key for key in self.network.keys() if key in self.valid_network]
+        network_key = network_keys[0]
+
+        # if 'member' not in self.network[network_key]:
+        #     # If the 'member' key does not exist, add it as an empty list
+        #     self.network[network_key]['member'] = []
+        #
+        # # Add the interface name if it doesn't already exist in the 'member' list
+        # if interface_name not in self.network[network_key]['member']:
+        #     self.network[network_key]['member'].append(interface_name)
+        #
+        # # Update self.entry and return the updated network
+        # self.entry.update({'network': self.network})
+        # return self.network
+
+        # use XML since the rest api is current broken for PANOS 11.1
+        xpath =f"xpath=/config/devices/entry[@name='localhost.localdomain']/template/entry[@name='{self.template}']/config/devices/entry[@name='vsys']/vsys/entry[@name='{self.vsys}']/zone/entry[@name='{self.name}']/network/{network_key}"
+        element=f"<member>{interface_name}</member>"
+        getresult = self.get_xml(xpath)
+        ic(getresult)
+        result = self.set_xml(xpath, element)
+        return result
 
 class DHCPServers(Network):
     """

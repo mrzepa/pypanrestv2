@@ -65,7 +65,6 @@ class Templates(PanoramaTab):
             raise TypeError(f'The attribute settings must be of type str, not {type(value)}.')
 
 
-
 class TemplateStacks(PanoramaTab):
     variable_types = ['ip-netmask', 'ip-range', 'fqdn', 'group-id', 'device-priority', 'device-id', 'interface',
                       'as-number', 'qos-profiles', 'egress-max', 'link-tag']
@@ -76,32 +75,41 @@ class TemplateStacks(PanoramaTab):
         self.devices: Dict = {'entry': []}
         self.variable: Dict = {'entry': []}
 
-    def add_device(self, name: str, variable: dict[list]) -> bool:
+    def add_device(self, name: str, variable: dict = None) -> bool:
         """
-        Adds a device and its associated variable to the 'devices' entry.
+        Adds a device (and its associated variable, if any) to the 'devices' entry.
 
-        This method validates the structure of the given variable, creates a new
-        device entry containing the specified name and variable, and appends it
-        to the devices list. It ensures that the updated devices entry is
-        assigned back to the main 'entry' attribute.
+        This method validates the structure of the given variable (if provided), creates a new
+        device entry containing the specified name (and variable if applicable), and appends it
+        to the devices list. It ensures that the updated devices entry is assigned back to
+        the main 'entry' attribute.
 
         Args:
             name: The name of the device to be added.
-            variable: The data or configuration associated with the device.
+            variable: (Optional) The data or configuration associated with the device.
 
         Returns:
-            bool
+            bool: True if the device was successfully added, False otherwise.
         """
-        if self.validate_variable_structure(variable):
-            logger.debug(f'Adding device {name} to template stack {self.name}')
-            device_entry = {'@name': name, 'variable': variable}
-            self.devices['entry'].append(device_entry)
-            self.entry['devices'] = self.devices
-            return True
+        # Check if a variable is provided
+        if variable:
+            if self.validate_variable_structure(variable):
+                logger.debug(f"Adding device {name} with variables to template stack {self.name}")
+                device_entry = {'@name': name, 'variable': variable}
+            else:
+                logger.debug(f"Invalid variable structure for device {name}. Not adding.")
+                logger.debug(f"Variables provided: {variable}")
+                return False
         else:
-            logger.debug(f'Invalid variable structure for device {name} in template stack {self.name}. Not adding.')
-            logger.debug(f'Varibles provide: {variable}')
-            return False
+            # Handle case where no variables are provided
+            logger.debug(f"Adding device {name} without variables to template stack {self.name}")
+            device_entry = {'@name': name}
+
+        # Add the device entry to the devices list
+        self.devices['entry'].append(device_entry)
+        self.entry['devices'] = self.devices
+
+        return True
 
     def update_variable(self, name: str, variable_type: str, variable_value: str):
         if variable_type in self.variable_types:
