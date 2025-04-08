@@ -527,7 +527,7 @@ class PAN:
             job_id = parsed_response.get('response', {}).get('result', {}).get('job')
             if wait and job_id:
                 # Waiting for completion
-                logger.debug(f'Waitinf for commit job id {job_id} to complete.')
+                logger.debug(f'Waiting for commit job id {job_id} to complete.')
                 commmit_status = self.wait_for_commit_to_finish(job_id)
                 return {**commmit_status, 'job_id': job_id}
             elif job_id:
