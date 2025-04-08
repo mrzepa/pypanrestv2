@@ -736,18 +736,18 @@ class Firewall(PAN):
             Attributes:
                 None
             """
-            logger.debug(f'Firewall {self.hostname} attempting to download version {v2}')
+            logger.debug(f'Firewall {self.serial} attempting to download version {v2}')
             op_download = self.op('request system software download version', value=v2, wait=True)
-            logger.debug(f'Firewall {self.hostname} status of download operation: {op_download}')
+            logger.debug(f'Firewall {self.serial} status of download operation: {op_download}')
             if op_download['status'] == 'success':
                 op_install = self.op('request system software install version', value=v2, wait=True)
-                logger.debug(f'Firewall {self.hostname} status of install operation: {op_install}')
+                logger.debug(f'Firewall {self.serial} status of install operation: {op_install}')
                 if op_install['status'] == 'success':
                     self.op(f'request restart system')
                     loop = 0
                     while True:
                         # Wait for firewall to complete rebooting
-                        logger.info(f'Waiting for firewall {self.hostname} to come back after reboot.')
+                        logger.info(f'Waiting for firewall {self.serial} to come back after reboot.')
                         if loop == 0:
                             time.sleep(300)
                         else:
@@ -759,7 +759,7 @@ class Firewall(PAN):
                                     # Make sure the current object's version attribute is updated.
                                     self.ver = self.ver_from_sw_version(self.SystemInfo['sw-version'])
                                     return {'status': 'success',
-                                            'msg': f'Device {self.hostname} upgraded to {new_version}.'}
+                                            'msg': f'Device {self.serial} upgraded to {new_version}.'}
                         except requests.exceptions.ConnectionError:
                             # while the firewall is down, we will get this error.
                             loop += 1
@@ -771,7 +771,7 @@ class Firewall(PAN):
                         loop += 1
                         if loop > 20:
                             return {'status': 'failure',
-                                    'msg': f'Device {self.hostname} failed to come back after reboot.'}
+                                    'msg': f'Device {self.serial} failed to come back after reboot.'}
 
         # Map the steps needed to upgrade from one major version to the next.
         upgrade_map = {'9.1': '10.0',
@@ -782,27 +782,27 @@ class Firewall(PAN):
         if self.SystemInfo['sw-version'] == new_version:
             # the current and requested new version are the same, nothing to do.
             return {'status': 'success',
-                    'msg': f'The device {self.hostname} is already at version {new_version}. Nothing to do.'}
+                    'msg': f'The device {self.serial} is already at version {new_version}. Nothing to do.'}
         # Get current list of available images to download
         op_check = self.op('request system software check')
         if op_check['status'] == 'success':
-            logger.debug(f'Firewall {self.hostname} status of check operation: success')
+            logger.debug(f'Firewall {self.serial} status of check operation: success')
         else:
-            logger.error(f'Firewall {self.hostname} status of check operation: {op_check}')
+            logger.error(f'Firewall {self.serial} status of check operation: {op_check}')
             return {'status': 'failure',
-                    'msg': f'Device {self.hostname} failed to retrieve available software versions.'}
+                    'msg': f'Device {self.serial} failed to retrieve available software versions.'}
 
         v1_components = self.SystemInfo['sw-version'].split('.')
         v2_components = new_version.split('.')
         v1_major = v1_components[0] + '.' + v1_components[1]
         v2_major = v2_components[0] + '.' + v2_components[1]
-        logger.debug(f'Attempting to upgrade {self.hostname} from {self.SystemInfo['sw-version']} to {new_version}.')
+        logger.debug(f'Attempting to upgrade {self.serial} from {self.SystemInfo['sw-version']} to {new_version}.')
         if v1_major != v2_major:
             # as of PANOS 10.2 you no longer need to step upgrade.
             if float(v1_major) >= 10.2:
-                logger.debug(f'Firewall {self.hostname} is at a version greater than or equal to 10.2.')
+                logger.debug(f'Firewall {self.serial} is at a version greater than or equal to 10.2.')
                 v2 = f'{v2_major}.0'
-                logger.debug(f'Firewall {self.hostname} is attempting to download to {v2}.')
+                logger.debug(f'Firewall {self.serial} is attempting to download to {v2}.')
                 op_download = self.op('request system software download version', value=v2, wait=True)
                 logger.debug(f'Result of download: {op_download}')
                 if op_download['status'] == 'success':
@@ -840,7 +840,7 @@ class Firewall(PAN):
                 v1_major = upgrade_map[v1_major]
         else:
             # The two major version are equal, so just download and install the patch.
-            logger.debug(f'Firewall {self.hostname} is already at the same major version as {new_version}. ')
+            logger.debug(f'Firewall {self.serial} is already at the same major version as {new_version}. ')
             result = download_and_install(new_version)
             return result
 
