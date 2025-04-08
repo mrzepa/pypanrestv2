@@ -512,13 +512,14 @@ class PAN:
             'type': 'commit',
             'cmd': '<commit></commit>'
         }
-
+        logger.debug(f'Commit changes to {self.hostname}.')
         parsed_response = self.xml_request(params=params)
 
         if parsed_response.get('response', {}).get('@status') == 'success':
             job_id = parsed_response.get('response', {}).get('result', {}).get('job')
             if wait and job_id:
                 # Waiting for completion
+                logger.debug(f'Waitinf for commit job id {job_id} to complete.')
                 commmit_status = self.wait_for_commit_to_finish(job_id)
                 return {**commmit_status, 'job_id': job_id}
             elif job_id:
@@ -643,6 +644,7 @@ class PAN:
     def update_hostname(self, hostname):
         xpath = "/config/devices/entry[@name='localhost.localdomain']/deviceconfig/system/hostname"
         element = f"<hostname>{hostname}</hostname>"
+        self.hostname = hostname
         return self.edit_xml(xpath, element)
 
 
@@ -1532,7 +1534,6 @@ class Base:
         """
         params = self._build_params()
         data = {'entry': self.entry}
-        print(f'Attempting to edit {self.__class__.__name__}. URL: {self.base_url}, Params: {params}, Data: {data}')
         try:
             # Log request details for debugging
             logging.debug(
