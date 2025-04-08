@@ -447,6 +447,14 @@ class PAN:
                 progress = job['response']['result']['job']['progress']
                 logger.info(f"On device {self.hostname}, Job {job_id} is {progress}% complete.")
 
+            except requests.exceptions.ConnectionError as ce:
+                if 'HTTPSConnectionPool' in str(ce):
+                    logger.warning(f"HTTPS connection pool issue encountered: {ce}. Retrying in 30 seconds...")
+                    time.sleep(10)
+                    continue  # Try the request again after sleep
+                else:
+                    logger.error(f"Connection error encountered: {ce}")
+                    break
             except requests.exceptions.RequestException as e:
                 logger.error(f"Error polling job status: {e}")
                 break
@@ -757,9 +765,14 @@ class Firewall(PAN):
                             if new_sysinfo.get('result'):
                                 if new_sysinfo['status'] == 'success':
                                     # Make sure the current object's version attribute is updated.
-                                    self.ver = self.ver_from_sw_version(self.SystemInfo['sw-version'])
-                                    return {'status': 'success',
-                                            'msg': f'Device {self.serial} upgraded to {new_version}.'}
+                                    if self.SystemInfo["sw-version"] == v2:
+                                        self.ver = self.ver_from_sw_version(self.SystemInfo['sw-version'])
+
+                                        return {'status': 'success',
+                                                'msg': f'Device {self.serial} upgraded to {new_version}.'}
+                                    else:
+                                        return {'status': 'failure',
+                                                'msg': f'Device {self.serial} failed to upgrade to {new_version}.'}
                         except requests.exceptions.ConnectionError:
                             # while the firewall is down, we will get this error.
                             loop += 1
@@ -861,6 +874,15 @@ class Firewall(PAN):
             logging.error(f"Failed to disable SIP ALG. Response: {result}")
             return 'error'
 
+    def set_telemetry(self, region: str):
+        xpath = "/config/devices/entry[@name='localhost.localdomain']/deviceconfig/system/device-telemetry"
+        element = "<region>" + region + "</region>"
+        result = self.set_xml(xpath=xpath, element=element)
+        if result.get('status') == 'success':
+            return 'success'
+        else:
+            logging.error(f"Failed to set telemetry. Response: {result}")
+            return 'error'
 
 class Panorama(PAN):
     # Panorama object using REST API
