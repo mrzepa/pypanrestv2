@@ -707,11 +707,11 @@ class Firewall(PAN):
             if add_panorama_result.get('status') == 'success':
                 op_result = self.op('request authkey set', value=authkey)
                 if op_result.get('status') == 'success':
-                    return {'status':'success', 'msg': f'Added {self.serial} to Panorama {panorama_ip}.'}
+                    return {'status': 'success', 'msg': f'Added {self.serial} to Panorama {panorama_ip}.'}
                 else:
                     error_msg = f"Failed to set authkey on {self.hostname}. Response: {op_result}"
                     logger.error(error_msg)
-                    return {'status':'error', 'msg': error_msg}
+                    return {'status': 'error', 'msg': error_msg}
             else:
                 error_msg = f"Could not add Panorama server {panorama_ip} to firewall {self.hostname}. Response: {add_panorama_result}"
                 logger.error(error_msg)
