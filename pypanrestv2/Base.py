@@ -777,6 +777,10 @@ class Firewall(PAN):
                             # while the firewall is down, we will get this error.
                             loop += 1
                             continue
+                        except requests.exception.NewConnectionError:
+                            # while the firewall is down, we will get this error.
+                            loop += 1
+                            continue
                         except requests.exceptions.ReadTimeout:
                             # The firewall is up, but autocommit is not yet done.
                             loop += 1
