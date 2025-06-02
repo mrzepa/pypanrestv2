@@ -15,13 +15,20 @@
 
 ## Installation
 
-To include `PyPanRestV2` in your project, you can clone the repository:
+To install `PyPanRestV2`, clone the repository and install it as a package:
 
 ```bash
-git clone https://github.com/wellhealthtechnologies/PyPanRestV2.git
+# Clone the repository
+git clone https://github.com/mrzepa/pypanrestv2.git
+
+# Navigate to the project directory
+cd pypanrestv2
+
+# Install the package in development mode
+pip install -e .
 ```
 
-Once cloned, ensure required dependencies are installed (if applicable).
+This will install the package and all required dependencies automatically. The `-e` flag installs the package in "editable" mode, which is useful if you plan to modify the code or contribute to the project.
 
 ---
 
@@ -47,16 +54,54 @@ For **Panorama**:
 panorama = Panorama(base_url="192.168.2.1", username="admin", password="my_password")
 ```
 
-### Interact with Specific Sections of the Device
-Once connected, create an object representing the section of the firewall or Panorama device you want to manage. For example, to interact with the **Security Policies**:
+### Common Use Cases
 
+#### 1. Managing Security Rules
 ```python
 from pypanrestv2.Policies import SecurityRules
-security_policy = SecurityRules(firewall, name='rule1')
-# Add your logic to manage security policies.
-# if this is an existing rule you can do stuff like
-security_policy.refresh() # to get the rule from the firewall
 
+# Create a new security rule
+security_rule = SecurityRules(firewall, name='allow_web')
+security_rule.source_zone = ['trust']
+security_rule.destination_zone = ['untrust']
+security_rule.source = ['any']
+security_rule.destination = ['any']
+security_rule.application = ['web-browsing']
+security_rule.service = ['application-default']
+security_rule.action = 'allow'
+security_rule.create()
+
+# Modify an existing rule
+existing_rule = SecurityRules(firewall, name='existing_rule')
+existing_rule.refresh()  # Load current configuration
+existing_rule.action = 'deny'
+existing_rule.update()
+```
+
+#### 2. Managing Address Objects
+```python
+from pypanrestv2.Objects import Addresses
+
+# Create a new address object
+address = Addresses(firewall, name='web_server')
+address.value = '192.168.1.100'
+address.type = 'ip-netmask'
+address.create()
+
+# Get all address objects
+all_addresses = Addresses.get_all(firewall)
+```
+
+#### 3. Working with Panorama Device Groups
+```python
+from pypanrestv2 import Panorama
+
+# Initialize Panorama connection
+panorama = Panorama(base_url='panorama.example.com', api_key='YOUR_API_KEY')
+
+# Add a device to a device group
+device_group = panorama.device_groups.get('Branch_Offices')
+device_group.add_device('serial123')
 ```
 
 ---
@@ -71,14 +116,47 @@ Visit the project's GitHub repository for source code, documentation, enhancemen
 
 ## Requirements
 
-- **Python 3.12+** (or higher)
+- **Python 3.11+** (or higher)
 - **Palo Alto Devices** or Panorama
 - Python modules listed in requirements.txt
 
 ---
 
-## THIS IS A WORK IN PROGRESS
-Not section of the firewall or panorama has been enumerated, and they change with every new PanOS version.
+## API Documentation
+
+The SDK provides access to the following main components:
+
+### Core Modules
+- `Firewall/Panorama`: Base connection and authentication
+- `Policies`: Security rules, NAT rules, and policy management
+- `Objects`: Address objects, service objects, and security profiles
+- `Network`: Interfaces, zones, and routing configuration
+- `Device`: System settings and device management
+
+### Error Handling
+
+The SDK uses custom exceptions for better error handling:
+
+```python
+from pypanrestv2.Exceptions import PANConnectionError, PANConfigError
+
+try:
+    firewall = Firewall(base_url='192.168.1.1', api_key='invalid_key')
+    firewall.test_connection()
+except PANConnectionError as e:
+    print(f'Connection failed: {e}')
+except PANConfigError as e:
+    print(f'Configuration error: {e}')
+```
+
+Common errors and solutions:
+- `PANConnectionError`: Check network connectivity and API credentials
+- `PANConfigError`: Verify object names and configuration values
+- `PANNotFoundError`: Ensure referenced objects exist
+
+## Status and Updates
+
+This SDK is actively maintained and regularly updated to support new PAN-OS versions. While not all API endpoints are implemented, core functionality is stable and production-ready. Check the GitHub repository for the latest updates and supported features.
 
 ## Contributing
 
