@@ -1,5 +1,5 @@
 import getpass
-from typing import Optional, Dict, Any, Tuple, Union, List, Protocol, Set, TypeVar
+from typing import Optional, Dict, Any, Tuple, Union, List, Protocol, Set, TypeVar, override
 from . import ApplicationHelper
 from . import Exceptions
 import pycountry
@@ -395,6 +395,46 @@ class PAN:
         except Exception as e:  # Catching generic exceptions for logging and error reporting
             logger.error(f"Parsing error or other exception: {e}")
             return {'status': 'error', 'msg': 'An unexpected error occurred'}
+
+    def override(self, xpath: str, element: str) -> dict:
+        """
+        Override a configuration object on the firewall using the XML API.
+
+        Args:
+            xpath (str): The XPath of the configuration object to be overridden.
+            element (str): The XML element with the new override settings.
+
+        Returns:
+            dict: The result of the override operation, typically containing 'status' and 'msg'.
+        """
+
+        # Base API call for override
+        params = {
+            "type": "config",
+            "action": "override",
+            "xpath": xpath,
+            "element": element
+        }
+
+        # Make the API call
+        try:
+            parsed_response = self.xml_request(params=params, timeout=8)
+            status = parsed_response['response']['@status']
+            message = parsed_response['response'].get('msg', 'No message provided')
+
+            return {'status': status, 'msg': message}
+        except requests.exceptions.HTTPError as e:
+            logging.error(f"HTTP error occurred: {e}")
+            return {'status': 'error', 'msg': str(e)}
+        except requests.exceptions.ConnectionError as e:
+            logging.error(f"Connection error occurred: {e}")
+            return {'status': 'error', 'msg': 'Connection error'}
+        except requests.exceptions.Timeout as e:
+            logging.error(f"Request timed out: {e}")
+            return {'status': 'error', 'msg': 'Timeout'}
+        except Exception as e:
+            logging.error(f"An unexpected error occurred: {e}")
+            return {'status': 'error', 'msg': 'Unexpected error'}
 
     def send_command(self, cmd: str, value: Optional[Any] = None, timeout: int = 60) -> Dict[str, Any]:
         """
@@ -880,13 +920,31 @@ class Firewall(PAN):
 
     def set_telemetry(self, region: str):
         xpath = "/config/devices/entry[@name='localhost.localdomain']/deviceconfig/system/device-telemetry"
-        element = "<region>" + region + "</region>"
+        element = f"<region>{region}</region>"
         result = self.set_xml(xpath=xpath, element=element)
         if result.get('status') == 'success':
             return 'success'
         else:
+            if 'set failed, may need to override template object' in result.get('msg', ''):
+                override_result = self.override(xpath=xpath, element=element)
+                if override_result['status'] == 'success':
+                    logger.info(
+                        f"Successfully performed telemetry override for device {self.hostname}. Retrying telemetry set.")
+                    # Retry setting telemetry after the override
+                    retry_result = self.set_xml(xpath, element)
+                    if retry_result['status'] == 'success':
+                        logger.info(f"Successfully set telemetry for device {self.hostname} after override.")
+                        mark_step_completed(self.serial, 'telemetry')
+                    else:
+                        logger.error(
+                            f"Failed to set telemetry for device {self.hostname} after override. {retry_result['msg']}")
+                else:
+                    logger.error(f"Failed to override telemetry for device {self.hostname}. {override_result['msg']}")
+
             logging.error(f"Failed to set telemetry. Response: {result}")
             return 'error'
+
+
 
 class Panorama(PAN):
     # Panorama object using REST API
