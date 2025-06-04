@@ -1,5 +1,5 @@
 import getpass
-from typing import Optional, Dict, Any, Tuple, Union, List, Protocol, Set, TypeVar, override
+from typing import Optional, Dict, Any, Tuple, Union, List, Protocol, Set, TypeVar
 from . import ApplicationHelper
 from . import Exceptions
 import pycountry
