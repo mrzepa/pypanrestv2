@@ -853,7 +853,7 @@ class Firewall(PAN):
         v2_components = new_version.split('.')
         v1_major = v1_components[0] + '.' + v1_components[1]
         v2_major = v2_components[0] + '.' + v2_components[1]
-        logger.debug(f'Attempting to upgrade {self.serial} from {self.SystemInfo['sw-version']} to {new_version}.')
+        logger.debug(f'Attempting to upgrade {self.serial} from {self.SystemInfo["sw-version"]} to {new_version}.')
         if v1_major != v2_major:
             # as of PANOS 10.2 you no longer need to step upgrade.
             if float(v1_major) >= 10.2:
