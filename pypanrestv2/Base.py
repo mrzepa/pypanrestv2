@@ -1352,7 +1352,7 @@ class Base:
         self.template: str = kwargs.get('template')
         self.template_stack: str = kwargs.get('template_stack')
         self.vsys = kwargs.get('vsys')
-        self.pre_post: str = None
+        # self.pre_post: str = None
 
     def __str__(self):
         return self.name
@@ -1537,7 +1537,7 @@ class Base:
 
     def get(self) -> Optional[List[Dict[str, Any]]]:
         """
-        Retrieve details for the current network tab based on its name and location.
+        Retrieve details for the current tab based on its name and location.
 
         Returns:
             Optional[List[Dict[str, Any]]]: A list of entries from the API response or None if an error occurs.
