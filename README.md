@@ -8,14 +8,22 @@
 
 - **High-Level Abstraction**: Simplifies interaction with the Palo Alto Networks API.
 - **Support for Firewalls and Panorama**: Manage both individual firewalls and Panorama devices.
-- **REST API Integration**: Allows seamless communication with devices.
+- **REST API Integration**: Allows seamless communication with devices using REST API.
+- **XML API Support**: Handles XML API calls for configurations not yet available in REST API.
 - **Convenient Pythonic Objects**: Intuitive Python objects for interacting with specific sections of Palo Alto firewall configurations.
+- **Error Handling**: Custom exceptions for better error management and troubleshooting.
 
 ---
 
 ## Installation
 
-To install `PyPanRestV2`, clone the repository and install it as a package:
+You can install `PyPanRestV2` using pip:
+
+```bash
+pip install pypanrestv2
+```
+
+Alternatively, you can clone the repository and install it as a package for development:
 
 ```bash
 # Clone the repository
@@ -38,7 +46,7 @@ This will install the package and all required dependencies automatically. The `
 Start by importing the necessary classes from the library:
 
 ```python
-from pypantrestv2 import Firewall, Panorama
+from pypanrestv2 import Firewall, Panorama
 ```
 
 ### Connect to a Firewall or Panorama Device
@@ -62,12 +70,12 @@ from pypanrestv2.Policies import SecurityRules
 
 # Create a new security rule
 security_rule = SecurityRules(firewall, name='allow_web')
-security_rule.source_zone = ['trust']
-security_rule.destination_zone = ['untrust']
-security_rule.source = ['any']
-security_rule.destination = ['any']
-security_rule.application = ['web-browsing']
-security_rule.service = ['application-default']
+security_rule.from_ = {'member': ['trust']}
+security_rule.to = {'member': ['untrust']}
+security_rule.source = {'member': ['any']}
+security_rule.destination = {'member': ['any']}
+security_rule.application = {'member': ['web-browsing']}
+security_rule.service = {'member': ['application-default']}
 security_rule.action = 'allow'
 security_rule.create()
 
@@ -92,16 +100,24 @@ address.create()
 all_addresses = Addresses.get_all(firewall)
 ```
 
-#### 3. Working with Panorama Device Groups
+#### 3. Working with Panorama Policies and Rulebase
 ```python
 from pypanrestv2 import Panorama
+from pypanrestv2.Policies import SecurityRules
 
 # Initialize Panorama connection
 panorama = Panorama(base_url='panorama.example.com', api_key='YOUR_API_KEY')
 
-# Add a device to a device group
-device_group = panorama.device_groups.get('Branch_Offices')
-device_group.add_device('serial123')
+# Create a security rule in the pre-rulebase of a device group
+security_rule = SecurityRules(panorama, name='allow_internal', rulebase='Pre')
+security_rule.from_ = {'member': ['trust']}
+security_rule.to = {'member': ['untrust']}
+security_rule.source = {'member': ['any']}
+security_rule.destination = {'member': ['any']}
+security_rule.application = {'member': ['web-browsing']}
+security_rule.service = {'member': ['application-default']}
+security_rule.action = 'allow'
+security_rule.create()
 ```
 
 ---
@@ -110,15 +126,22 @@ device_group.add_device('serial123')
 
 Visit the project's GitHub repository for source code, documentation, enhancements, and contributions:
 
-[PyPanRestV2 Repository on GitHub](https://github.com/wellhealthtechnologies/PyPanRestV2.git)
+[PyPanRestV2 Repository on GitHub](https://github.com/mrzepa/pypanrestv2.git)
 
 ---
 
 ## Requirements
 
-- **Python 3.11+** (or higher)
-- **Palo Alto Devices** or Panorama
-- Python modules listed in requirements.txt
+- **Python 3.11+**
+- **Palo Alto Networks Devices** running PAN-OS 9.0+ or Panorama
+- Python dependencies:
+  - dnspython
+  - icecream
+  - pycountry
+  - python-dotenv
+  - requests
+  - tqdm
+  - validators
 
 ---
 
@@ -174,7 +197,7 @@ Be sure to check the documentation, if provided, before starting contributions.
 
 ## License
 
-This project is licensed under the MIT. See the [LICENSE](./https://opensource.org/license/mit) file for details.
+This project is licensed under the MIT License. See the [LICENSE](https://opensource.org/license/mit) file for details.
 
 ---
 
