@@ -1,0 +1,38 @@
+[
+    {
+        "@name": "SNET-AWMD-STG-AKS-CACE-01",
+        "@location": "device-group",
+        "@device-group": "Enterprise-Cloud",
+        "@loc": "Enterprise-Cloud",
+        "ip-netmask": "10.52.4.0/24",
+        "tag": {
+            "member": [
+                "AWMD"
+            ]
+        }
+    },
+    {
+        "@name": "LB-AWMD-STG-CACE-01",
+        "@location": "device-group",
+        "@device-group": "Enterprise-Cloud",
+        "@loc": "Enterprise-Cloud",
+        "ip-netmask": "10.52.4.8/32",
+        "tag": {
+            "member": [
+                "AWMD"
+            ]
+        }
+    },
+    {
+        "@name": "snet-khure-staging-vm-cace-01-1",
+        "@location": "device-group",
+        "@device-group": "Enterprise-Cloud",
+        "@loc": "Enterprise-Cloud",
+        "ip-netmask": "10.60.176.0/24",
+        "tag": {
+            "member": [
+                "KHURE"
+            ]
+        }
+    }
+]

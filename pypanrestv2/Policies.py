@@ -31,7 +31,7 @@ class Policy(Base, PAN):
         Base.__init__(self, PANDevice, **kwargs)
         PAN.__init__(self, PANDevice.base_url, api_key=PANDevice.api_key)
         self.endpoint: str = 'Policies'
-        self._pre_post: str = kwargs.get('pre_post', None)
+        self._rulebase: str = kwargs.get('rulebase', None)
         self.disabled: str = kwargs.get('disabled', 'no')
         self.group_tag: str = kwargs.get('group_tag')
         self.from_: Dict[str, List[str]] = kwargs.get('from_zone', {'member': []})
@@ -253,20 +253,20 @@ class Policy(Base, PAN):
             self.entry.update({'group-tag': value})
 
     @property
-    def pre_post(self) -> str:
-        return self._pre_post
+    def rulebase(self) -> str:
+        return self._rulebase
 
-    @pre_post.setter
-    def pre_post(self, value: str) -> None:
+    @rulebase.setter
+    def rulebase(self, value: str) -> None:
         if isinstance(self.PANDevice, Panorama):
             formatted_value = value.capitalize()  # This will make the first letter uppercase and the rest lowercase
 
             if formatted_value not in ['Pre', 'Post']:
-                raise ValueError("pre_post must be either 'Pre' or 'Post'.")
+                raise ValueError("rulebase must be either 'Pre' or 'Post'.")
 
-            self._pre_post = formatted_value
+            self._rulebase = formatted_value
         else:
-            self._pre_post = None
+            self._rulebase = None
 
 class SecurityRules(Policy):
     VALID_ACTIONS = ["deny", "allow", "drop", "reset-client", "reset-server", "reset-both"]

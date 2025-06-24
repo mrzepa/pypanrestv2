@@ -119,8 +119,9 @@ class PAN:
         valid_endpoints = ['Objects', 'Policies', 'Network', 'Device', 'Panorama']
         if self.endpoint not in valid_endpoints:
             raise ValueError(f'endpoint attribute must be one of {valid_endpoints}, not {self.endpoint}.')
-        if self.pre_post and self.endpoint == 'Policies':
-            url = f"{self.base_url}/restapi/{self.ver}/{self.endpoint}/{self.__class__.__name__.split('Rules')[0]}{self.pre_post}Rules"
+        if self.endpoint == 'Policies':
+            if self.rulebase:
+                url = f"{self.base_url}/restapi/{self.ver}/{self.endpoint}/{self.__class__.__name__.split('Rules')[0]}{self.rulebase}Rules"
         else:
             url = f"{self.base_url}/restapi/{self.ver}/{self.endpoint}/{self.__class__.__name__}"
         response = self.session.request(method, url, **kwargs)
@@ -1352,7 +1353,7 @@ class Base:
         self.template: str = kwargs.get('template')
         self.template_stack: str = kwargs.get('template_stack')
         self.vsys = kwargs.get('vsys')
-        # self.pre_post: str = None
+        # self.rulebase: str = None
 
     def __str__(self):
         return self.name
@@ -1428,7 +1429,7 @@ class Base:
                 raise ValueError("device_group can only be set when location is 'device-group'.")
 
             if value not in self.PANDevice.device_groups_list:
-                raise ValueError(f"Invalid device group: {value}. Must be one of: {self.PANDevice.device_group_list}")
+                raise ValueError(f"Invalid device group: {value}. Must be one of: {self.PANDevice.device_groups_list}")
 
             self._device_group = value
 
