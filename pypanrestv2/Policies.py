@@ -562,12 +562,7 @@ class NatRules(Policy):
         if value == 'any':
             self._service = 'any'
         else:
-            check_service = Services(self.PANDevice, name=value, location=self.location, device_group=self.device_group)
-            if check_service.get(ANYLOCATION=True, IsSearch=True):
-                self._service = value
-            else:
-                raise ValueError(f"The service '{value}' does not exist.")
-
+            self._service = value
         # Update the entry dictionary
         self.entry.update({'service': self._service})
 
@@ -604,28 +599,29 @@ class NatRules(Policy):
 
     @source_translation.setter
     def source_translation(self, value: dict) -> None:
-        if not isinstance(value, dict):
-            raise TypeError("source_translation must be a dictionary.")
+        if value:
+            if not isinstance(value, dict):
+                raise TypeError("source_translation must be a dictionary.")
 
-        # Validate the keys of the main dict
-        valid_keys = ['dynamic-ip-and-port', 'dynamic-ip', 'static-ip']
-        if all(key not in valid_keys for key in value.keys()):
-            raise ValueError(f"Invalid key in source_translation. Must be one of: {', '.join(valid_keys)}")
+            # Validate the keys of the main dict
+            valid_keys = ['dynamic-ip-and-port', 'dynamic-ip', 'static-ip']
+            if all(key not in valid_keys for key in value.keys()):
+                raise ValueError(f"Invalid key in source_translation. Must be one of: {', '.join(valid_keys)}")
 
-        keys_present = [key for key in valid_keys if key in value]
-        if len(keys_present) > 1:
-            raise ValueError("Only one of 'dynamic-ip-and-port', 'dynamic-ip', or 'static-ip' can be set at a time.")
+            keys_present = [key for key in valid_keys if key in value]
+            if len(keys_present) > 1:
+                raise ValueError("Only one of 'dynamic-ip-and-port', 'dynamic-ip', or 'static-ip' can be set at a time.")
 
-        if 'dynamic-ip-and-port' in value:
-            self._validate_dynamic_ip_and_port(value['dynamic-ip-and-port'])
-        elif 'dynamic-ip' in value:
-            self._validate_dynamic_ip(value['dynamic-ip'])
-        elif 'static-ip' in value:
-            self._validate_static_ip(value['static-ip'])
+            if 'dynamic-ip-and-port' in value:
+                self._validate_dynamic_ip_and_port(value['dynamic-ip-and-port'])
+            elif 'dynamic-ip' in value:
+                self._validate_dynamic_ip(value['dynamic-ip'])
+            elif 'static-ip' in value:
+                self._validate_static_ip(value['static-ip'])
 
-        # Update the entry dictionary to reflect the change
-        self._source_translation = value
-        self.entry.update({'source-translation': self._source_translation})
+            # Update the entry dictionary to reflect the change
+            self._source_translation = value
+            self.entry.update({'source-translation': self._source_translation})
 
     def _validate_dynamic_ip_and_port(self, value: dict) -> None:
         valid_sub_keys = ['translated-addresses', 'interface-address']
