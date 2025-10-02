@@ -3,7 +3,7 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 [tool.poetry]
 name = "PyPANRestV2"
-version = "2.1.1"
+version = "2.1.2"
 description = "Python tools for interacting with Palo Alto Networks REST API."
 authors = [
     "Mark Rzepa <mark@rzepa.com>"

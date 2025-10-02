@@ -378,80 +378,96 @@ class AddressGroups(Object):
     """
 
     valid_types = ['static', 'dynamic']
-    CompareAttributeList = ['member', 'filter'].extend(valid_types)
+    CompareAttributeList = ['member', 'filter'] + valid_types
 
     def __init__(self, PANDevice, **kwargs):
         super().__init__(PANDevice, max_name_length=64, max_description_length=1024, has_tags=False, **kwargs)
-        # Initialize MemberObj list with Address objects if 'member' list is provided
+        # Initialize container for resolved member objects
         self.MemberObj: list = []
-        self.static: Dict[str, List[str]] = {}
-        self.dynamic: Dict[str, List[str]] = {}
+
+        # Start unset; allow instantiation without static/dynamic
+        self._static: Optional[Dict[str, List[str]]] = None
+        self._dynamic: Optional[Dict[str, str]] = None
+
+        # Optionally accept one of 'static' or 'dynamic' from kwargs
+        provided_static = kwargs.get('static')
+        provided_dynamic = kwargs.get('dynamic')
+
+        if provided_static is not None and provided_dynamic is not None:
+            raise ValueError("Only one of 'static' or 'dynamic' can be provided.")
+
+        if provided_static is not None:
+            self.static = provided_static
+        elif provided_dynamic is not None:
+            self.dynamic = provided_dynamic
 
     @property
     def static(self):
         return self._static
 
     @static.setter
-    def static(self, value: dict):
+    def static(self, value: Optional[dict]):
         """
-        The setter method for the 'static' attribute.
-        Validates that the value is a dictionary containing the key 'member' with a value of type list,
-        and this list contains at least one item.
+        Set or clear the 'static' attribute.
+        When set, it must be a dict containing key 'member' with a non-empty list.
+        Setting 'static' clears 'dynamic' (mutually exclusive).
+        """
+        if value is None:
+            self._static = None
+            # Remove from entry if present
+            self.entry.pop('static', None)
+            return
 
-        :param value: The value to set for the 'static' attribute.
-        :type value: dict
-        :raises ValueError: If the value does not meet the specified criteria.
-        """
         if not isinstance(value, dict):
             raise ValueError("The 'static' attribute must be a dictionary.")
-
         if 'member' not in value:
             raise ValueError("The dictionary must contain the key 'member'.")
-
         if not isinstance(value['member'], list):
             raise ValueError("The 'member' key must have a list as its value.")
-
         if len(value['member']) < 1:
             raise ValueError("The list under 'member' key must contain at least one item.")
 
-        self._static = value
-        self.entry.update({'static': value})
+        # Set static and clear dynamic to ensure mutual exclusivity
+        self._static = {'member': list(value['member'])}
+        self.entry.update({'static': self._static})
+        # Clear dynamic side if set
+        self._dynamic = None
+        self.entry.pop('dynamic', None)
 
     @property
-    def dynamic(self) -> dict:
+    def dynamic(self) -> Optional[dict]:
         """
         The 'dynamic' property getter.
         """
         return self._dynamic
 
     @dynamic.setter
-    def dynamic(self, value: dict) -> None:
+    def dynamic(self, value: Optional[dict]) -> None:
         """
-        The setter for the 'dynamic' attribute.
-        Validates that the value is a dictionary with a key 'filter' whose value is a string of max length 2047.
+        Set or clear the 'dynamic' attribute.
+        When set, it must be a dict with a key 'filter' whose value is a string of max length 2047.
+        Setting 'dynamic' clears 'static' (mutually exclusive).
+        """
+        if value is None:
+            self._dynamic = None
+            self.entry.pop('dynamic', None)
+            return
 
-        :param value: The dictionary to set as the 'dynamic' attribute.
-        :raises ValueError: If the value does not meet the specified criteria.
-        """
-        # Check if the value is a dictionary
         if not isinstance(value, dict):
             raise ValueError("The 'dynamic' attribute must be a dictionary.")
-
-        # Check if the dictionary has a key named 'filter'
         if 'filter' not in value:
             raise ValueError("The dictionary must contain the key 'filter'.")
-
-        # Check if the value of 'filter' is a string
         if not isinstance(value['filter'], str):
             raise ValueError("The 'filter' key must have a string as its value.")
-
-        # Check if the string length of 'filter' is within the limit
         if len(value['filter']) > 2047:
             raise ValueError("The 'filter' value must not exceed 2047 characters.")
 
-        # If all checks pass, set the value
-        self._dynamic = value
-        self.entry.update({'dynamic': value})
+        # Set dynamic and clear static to ensure mutual exclusivity
+        self._dynamic = {'filter': value['filter']}
+        self.entry.update({'dynamic': self._dynamic})
+        # Clear static side if set
+        self._static = None
+        self.entry.pop('static', None)
 
     @property
     def MemberObj(self):
@@ -469,22 +485,27 @@ class AddressGroups(Object):
         del self._MemberObj
 
     def add_member(self, member):
-        if not hasattr(self, 'static'):
+        # Ensure we are in static mode
+        if self.static is None:
             raise ValueError("Can only add members to a 'static' type AddressGroup")
+        members = self._static.setdefault('member', [])
         if isinstance(member, Addresses):
-            if member.name not in self.member:
-                self.member.append(member.name)
+            if member.name not in members:
+                members.append(member.name)
                 self.MemberObj.append(member)
         elif isinstance(member, str):
-            if member not in self.member:
-                self.member.append(member)
-                # Optionally, resolve the Addresses object from the name and add to MemberObj
+            if member not in members:
+                members.append(member)
         else:
             raise TypeError("Member must be an Addresses object or a string")
+        # Reflect changes into entry
+        self.entry.update({'static': self._static})
 
     def remove_member(self, member):
-        if not hasattr(self, 'static'):
+        # Ensure we are in static mode
+        if self.static is None:
             raise ValueError("Can only remove members from a 'static' type AddressGroup")
+        members = self._static.get('member', [])
         if isinstance(member, Addresses):
             member_name = member.name
         elif isinstance(member, str):
@@ -492,35 +513,31 @@ class AddressGroups(Object):
         else:
             raise TypeError("Member must be an Addresses object or a string")
 
-        if member_name in self.member:
-            self.member.remove(member_name)
-            self.MemberObj = [obj for obj in self.MemberObj if obj.name != member_name]
+        if member_name in members:
+            members.remove(member_name)
+            self.MemberObj = [obj for obj in self.MemberObj if getattr(obj, 'name', None) != member_name]
+            # Reflect changes into entry
+            self.entry.update({'static': self._static})
 
     def set_filter(self, filter_str):
-        if not hasattr(self, 'dynamic'):
-            raise ValueError("Filter can only be set for a 'dynamic' type AddressGroup")
+        # Ensure we are in dynamic mode (and set if not yet set)
+        if not isinstance(filter_str, str):
+            raise TypeError("Filter must be a string")
         if len(filter_str) > 2047:
             raise ValueError("Filter length exceeds the maximum allowed characters (2047)")
-        self.dynamic = filter_str
+        # This will also clear static via the setter
+        self.dynamic = {'filter': filter_str}
 
     def get_object(self, obj_type, name: str, location: str, device_group: str, vsys: str) -> Optional[Any]:
         """
         Attempt to instantiate an object of type `obj_type` with the provided parameters.
         Returns the instantiated object if it exists, None otherwise.
-
-        :param obj_type: The class of the object to be instantiated.
-        :param name: The name of the object.
-        :param location: The location of the object.
-        :param device_group: The device group the object belongs to.
-        :param vsys: The virtual system the object belongs to.
-        :return: An instance of `obj_type` if successful, None otherwise.
         """
         try:
             obj = obj_type(PANDevice=self.PANDevice, name=name, location=location, device_group=device_group, vsys=vsys)
             if obj.get(ANYLOCATION=True, IsSearch=True):
                 return obj
         except Exception as e:
-            # Here you should log the exception e
             logger.error(f"Error instantiating object of type {obj_type.__name__}: {e}")
         return None
 
@@ -530,7 +547,7 @@ class AddressGroups(Object):
         Tries to instantiate Address objects first; if that fails, tries AddressGroups.
         Raises an exception if the static member list is empty or the objects cannot be found.
         """
-        members = self.static.get('member')
+        members = (self.static or {}).get('member')
         if not members:
             raise ValueError('Cannot populate an empty group.')
 
