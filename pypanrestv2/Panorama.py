@@ -66,50 +66,196 @@ class Templates(PanoramaTab):
 
 
 class TemplateStacks(PanoramaTab):
-    variable_types = ['ip-netmask', 'ip-range', 'fqdn', 'group-id', 'device-priority', 'device-id', 'interface',
-                      'as-number', 'qos-profiles', 'egress-max', 'link-tag']
+    """Represents a Panorama template stack and its templates, devices, and variables.
+
+    This class models the JSON structure used by the Panorama REST API for
+    template stacks, including:
+
+    - Stack-level templates under ``templates.member``.
+    - Devices assigned to the stack under ``devices.entry``.
+    - Stack-level variable definitions under ``variable.entry``.
+    - Per-device variable assignments under
+      ``devices.entry[*].variable.entry``.
+
+    Stack-level variables
+    ---------------------
+    Stack-level variables describe which variables are available to the
+    template stack and what *type* they are. Each definition looks like::
+
+        {
+            "@name": "$mgmt_ip",
+            "type": {"ip-netmask": "0.0.0.0/0"}
+        }
+
+    and is stored inside ``self.variable['entry']`` and serialized as the
+    ``variable`` block on the template stack.
+
+    Per-device variables
+    --------------------
+    Devices are stored in ``self.devices['entry']``. Each device can contain
+    a per-device ``variable`` block that assigns values to the stack-level
+    variables for that device::
+
+        {
+            "@name": "0123456789",  # device serial
+            "variable": {
+                "entry": [
+                    {
+                        "@name": "$mgmt_ip",
+                        "type": {"ip-netmask": "10.0.0.1/32"}
+                    }
+                ]
+            }
+        }
+
+    Typical usage
+    -------------
+
+    Create or load a template stack::
+
+        ts = TemplateStacks(panorama, name="Branch-Stack")
+        ts.refresh()  # optional, to pull live data
+
+    Define variables at the stack level::
+
+        ts.update_variable("$mgmt_ip", "ip-netmask", "0.0.0.0/0")
+        ts.update_variable("$hostname", "hostname", "default-host")
+        ts.edit()
+
+    Add a device to the stack::
+
+        ts.add_device("0123456789")
+        ts.edit()
+
+    Set a device variable value (recommended entry point)::
+
+        ts.set_device_variable_value(
+            device_serial="0123456789",
+            variable_name="$mgmt_ip",
+            value="10.1.2.3/32",
+        )
+        ts.edit()
+
+    The :meth:`set_device_variable_value` helper only requires the device
+    serial, variable name, and value. It automatically infers the variable
+    type from the stack-level definition and creates the device entry if it
+    does not already exist (unless disabled via
+    ``create_device_if_missing=False``).
+    """
+    variable_types = ['ip-netmask', 'ip-range', 'hostname', 'ipv4-subnet', 'ipv6-subnet', 'pre-shared-key',
+                        'fqdn', 'group-id', 'device-priority', 'device-id', 'interface',
+                        'as-number', 'qos-profile', 'egress-max', 'link-tag']
 
     def __init__(self, PANDevice, **kwargs):
         super().__init__(PANDevice, max_description_length=255, max_name_length=63, **kwargs)
-        self.templates: Dict = {'member': []}
-        self.devices: Dict = {'entry': []}
-        self.variable: Dict = {'entry': []}
+        self.templates: Dict = kwargs.get('templates', {'member': []})
+        self.devices: Dict = kwargs.get('devices', {'entry': []})
+        self.variable: Dict = kwargs.get('variable', {'entry': []})
 
-    def add_device(self, name: str, variable: dict = None) -> bool:
-        """
-        Adds a device (and its associated variable, if any) to the 'devices' entry.
+    def _ensure_devices_container(self) -> None:
+        if not isinstance(self.devices, dict) or 'entry' not in self.devices:
+            self.devices = {'entry': []}
+        if 'devices' not in self.entry:
+            self.entry['devices'] = self.devices
 
-        This method validates the structure of the given variable (if provided), creates a new
-        device entry containing the specified name (and variable if applicable), and appends it
-        to the devices list. It ensures that the updated devices entry is assigned back to
-        the main 'entry' attribute.
+    def _ensure_device_variables_container(self, device_entry: Dict[str, Any]) -> None:
+        if 'variable' not in device_entry or not isinstance(device_entry['variable'], dict):
+            device_entry['variable'] = {'entry': []}
 
-        Args:
-            name: The name of the device to be added.
-            variable: (Optional) The data or configuration associated with the device.
+    def add_device(self, name: str, variables: Optional[Dict] = None) -> bool:
+        self._ensure_devices_container()
 
-        Returns:
-            bool: True if the device was successfully added, False otherwise.
-        """
-        # Check if a variable is provided
-        if variable:
-            if self.validate_variable_structure(variable):
-                logger.debug(f"Adding device {name} with variables to template stack {self.name}")
-                device_entry = {'@name': name, 'variable': variable}
-            else:
+        if variables is not None:
+            # variables must be a variable dict: {'entry': [ ... ]}
+            if not self.validate_variable_structure(variables):
                 logger.debug(f"Invalid variable structure for device {name}. Not adding.")
-                logger.debug(f"Variables provided: {variable}")
+                logger.debug(f"Variables provided: {variables}")
                 return False
+            device_entry: Dict[str, Any] = {'@name': name, 'variable': variables}
         else:
-            # Handle case where no variables are provided
-            logger.debug(f"Adding device {name} without variables to template stack {self.name}")
             device_entry = {'@name': name}
 
-        # Add the device entry to the devices list
         self.devices['entry'].append(device_entry)
         self.entry['devices'] = self.devices
 
         return True
+
+    def remove_device(self, name: str) -> bool:
+        self._ensure_devices_container()
+        for idx, device_entry in enumerate(self.devices['entry']):
+            if device_entry.get('@name') == name:
+                del self.devices['entry'][idx]
+                self.entry['devices'] = self.devices
+                return True
+        return False
+
+    def set_device_variable_value(
+        self,
+        device_serial: str,
+        variable_name: str,
+        value: str,
+        create_device_if_missing: bool = True,
+    ) -> None:
+        """Set a per-device variable value using only serial, name, and value.
+
+        Parameters
+        ----------
+        device_serial:
+            Serial number of the device in the template stack.
+        variable_name:
+            Name of the variable (for example ``"$mgmt_ip"``). The variable
+            must already be defined at the stack level via
+            :meth:`update_variable`.
+        value:
+            Value to assign to this variable for the specified device.
+        create_device_if_missing:
+            If ``True`` (default), a new device entry is added to
+            ``devices.entry`` if one with ``@name == device_serial`` does not
+            already exist. If ``False``, the method will only update existing
+            devices.
+
+        Notes
+        -----
+        The method looks up ``variable_name`` in the stack-level
+        ``self.variable['entry']`` block to determine the correct variable
+        *type* (for example ``"ip-netmask"`` or ``"hostname"``). It then
+        delegates to :meth:`update_device_variable` to create or update the
+        per-device variable entry under
+        ``devices.entry[*].variable.entry``.
+        """
+
+        # Ensure we have stack-level variable definitions
+        if not self.variable or 'entry' not in self.variable:
+            raise ValueError(
+                f"No stack-level variables defined on template stack {self.name}; "
+                f"cannot infer type for {variable_name!r}."
+            )
+
+        # Find the variable definition to determine its type key
+        var_type_key: Optional[str] = None
+        for var_def in self.variable['entry']:
+            if var_def.get('@name') == variable_name and isinstance(var_def.get('type'), dict):
+                if var_def['type']:
+                    var_type_key = next(iter(var_def['type']))
+                break
+
+        if not var_type_key:
+            raise ValueError(
+                f"Variable definition {variable_name!r} not found on template stack {self.name}; "
+                "define it first on the outer 'variable' block."
+            )
+
+        # Optionally create the device entry if it does not exist yet
+        device_exists = any(
+            isinstance(d, dict) and d.get('@name') == device_serial
+            for d in self.devices.get('entry', [])
+        )
+
+        if not device_exists and create_device_if_missing:
+            self.add_device(device_serial)
+
+        # Delegate to the lower-level helper that knows about types
+        self.update_device_variable(device_serial, variable_name, var_type_key, value)
 
     def update_variable(self, name: str, variable_type: str, variable_value: str):
         if variable_type in self.variable_types:
@@ -119,26 +265,51 @@ class TemplateStacks(PanoramaTab):
 
     def update_device_variable(self, device_name: str, variable_name: str, variable_type: str,
                                variable_value: str) -> None:
-        if variable_type in self.variable_types:
-            # Find the device by name
-            for device_entry in self.devices['entry']:
-                if device_entry['@name'] == device_name:
-                    # Find the variable by name within the device's 'variable' list
-                    variable_found = False
-                    for var_entry in device_entry['variable']['entry']:
-                        if var_entry['@name'] == variable_name:
-                            # Update existing variable
-                            var_entry['type'] = {variable_type: variable_value}
-                            variable_found = True
-                            break
+        if variable_type not in self.variable_types:
+            return
 
-                    if not variable_found:
-                        # Add new variable if not found
-                        device_entry['variable']['entry'].append({
-                            '@name': variable_name,
-                            'type': {variable_type: variable_value}
-                        })
+        self._ensure_devices_container()
+
+        for device_entry in self.devices['entry']:
+            if device_entry.get('@name') != device_name:
+                continue
+
+            self._ensure_device_variables_container(device_entry)
+
+            variable_found = False
+            for var_entry in device_entry['variable']['entry']:
+                if var_entry.get('@name') == variable_name:
+                    var_entry['type'] = {variable_type: variable_value}
+                    variable_found = True
                     break
+
+            if not variable_found:
+                device_entry['variable']['entry'].append({
+                    '@name': variable_name,
+                    'type': {variable_type: variable_value}
+                })
+
+            self.entry['devices'] = self.devices
+            break
+
+    def remove_device_variable(self, device_name: str, variable_name: str) -> bool:
+        self._ensure_devices_container()
+
+        for device_entry in self.devices['entry']:
+            if device_entry.get('@name') != device_name:
+                continue
+
+            if 'variable' not in device_entry or 'entry' not in device_entry['variable']:
+                return False
+
+            for idx, var_entry in enumerate(device_entry['variable']['entry']):
+                if var_entry.get('@name') == variable_name:
+                    del device_entry['variable']['entry'][idx]
+                    self.entry['devices'] = self.devices
+                    return True
+            return False
+
+        return False
 
     def add_template_member(self, member):
         self.templates['member'].append(member)
@@ -208,7 +379,7 @@ class TemplateStacks(PanoramaTab):
     def variable(self, value: Dict):
         if self.validate_variable_structure(value):
             self._variable = value
-            self.entry['variables'] = value
+            self.entry['variable'] = value
         else:
             raise ValueError("Invalid variable structure")
 
@@ -251,9 +422,9 @@ class TemplateStacks(PanoramaTab):
         if not isinstance(devices['entry'], list):
             return False
         for item in devices['entry']:
-            if not isinstance(item, dict) or '@name' not in item or 'variable' not in item:
+            if not isinstance(item, dict) or '@name' not in item:
                 return False
-            if not self.validate_variable_structure(item['variable']):
+            if 'variable' in item and not self.validate_variable_structure(item['variable']):
                 return False
         return True
 
