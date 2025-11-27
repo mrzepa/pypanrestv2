@@ -224,25 +224,13 @@ class TemplateStacks(PanoramaTab):
         ``devices.entry[*].variable.entry``.
         """
 
-        # Ensure we have stack-level variable definitions
-        if not self.variable or 'entry' not in self.variable:
-            raise ValueError(
-                f"No stack-level variables defined on template stack {self.name}; "
-                f"cannot infer type for {variable_name!r}."
-            )
-
-        # Find the variable definition to determine its type key
-        var_type_key: Optional[str] = None
-        for var_def in self.variable['entry']:
-            if var_def.get('@name') == variable_name and isinstance(var_def.get('type'), dict):
-                if var_def['type']:
-                    var_type_key = next(iter(var_def['type']))
-                break
+        # Infer the variable type (from stack-level block or existing devices)
+        var_type_key = self._infer_variable_type(variable_name)
 
         if not var_type_key:
             raise ValueError(
-                f"Variable definition {variable_name!r} not found on template stack {self.name}; "
-                "define it first on the outer 'variable' block."
+                f"Variable definition {variable_name!r} not found for template stack {self.name}; "
+                "define it at the stack level or ensure another device has it assigned."
             )
 
         # Optionally create the device entry if it does not exist yet
@@ -256,6 +244,37 @@ class TemplateStacks(PanoramaTab):
 
         # Delegate to the lower-level helper that knows about types
         self.update_device_variable(device_serial, variable_name, var_type_key, value)
+
+    def _infer_variable_type(self, variable_name: str) -> Optional[str]:
+        """Return the variable type key for a given variable name, if known.
+
+        The lookup order is:
+
+        1. Stack-level ``variable.entry`` definitions.
+        2. Existing device-level ``devices.entry[*].variable.entry`` blocks.
+        """
+
+        # 1) Look at stack-level variable definitions, if present
+        if self.variable and isinstance(self.variable, dict) and 'entry' in self.variable:
+            for var_def in self.variable.get('entry', []):
+                if var_def.get('@name') == variable_name and isinstance(var_def.get('type'), dict):
+                    if var_def['type']:
+                        return next(iter(var_def['type']))
+
+        # 2) Fallback: inspect variables from existing devices in the stack
+        if self.devices and isinstance(self.devices, dict):
+            for dev in self.devices.get('entry', []):
+                if not isinstance(dev, dict):
+                    continue
+                dev_var = dev.get('variable')
+                if not isinstance(dev_var, dict):
+                    continue
+                for var in dev_var.get('entry', []):
+                    if var.get('@name') == variable_name and isinstance(var.get('type'), dict):
+                        if var['type']:
+                            return next(iter(var['type']))
+
+        return None
 
     def update_variable(self, name: str, variable_type: str, variable_value: str):
         if variable_type in self.variable_types:
