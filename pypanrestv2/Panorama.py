@@ -390,38 +390,38 @@ class TemplateStacks(PanoramaTab):
             return False
         return True
 
-    # @property
-    # def variable(self):
-    #     return self._variable
+    @property
+    def variable(self):
+        return self._variable
 
-    # @variable.setter
-    # def variable(self, value: Dict):
-    #     if self.validate_variable_structure(value):
-    #         self._variable = value
-    #         self.entry['variable'] = value
-    #     else:
-    #         raise ValueError("Invalid variable structure")
+    @variable.setter
+    def variable(self, value: Dict):
+        if self.validate_variable_structure(value):
+            self._variable = value
+            self.entry['variable'] = value
+        else:
+            raise ValueError("Invalid variable structure")
 
-    # def validate_variable_structure(self, variable: Dict) -> bool:
-    #     if not isinstance(variable, dict) or 'entry' not in variable:
-    #         logger.debug(f'Variable is not a Dictionary or entry not in variable.')
-    #         return False
-    #     if not isinstance(variable['entry'], list):
-    #         logger.debug(f'Variable entry is not a list.')
-    #         return False
-    #     for item in variable['entry']:
-    #         if not isinstance(item, dict) or '@name' not in item or 'type' not in item:
-    #             logger.debug(f'Missing keys @name and type. You provided {item}')
-    #             return False
-    #         if not isinstance(item['type'], dict) or len(item['type']) != 1:
-    #             logger.debug(f'Key type must be a dictionary with one key. You provided {item["type"]}.')
-    #             return False
-    #         type_key = next(iter(item['type']))
-    #         if type_key not in self.variable_types or not isinstance(item['type'][type_key], str):
-    #             logger.debug(f"Key type is not valid. For variable {item['@name']}, you provided {type_key} "
-    #                          f"as type {type(item['type'][type_key])}. Value is {item['type'][type_key]}.")
-    #             return False
-    #     return True
+    def validate_variable_structure(self, variable: Dict) -> bool:
+        if not isinstance(variable, dict) or 'entry' not in variable:
+            logger.debug(f'Variable is not a Dictionary or entry not in variable.')
+            return False
+        if not isinstance(variable['entry'], list):
+            logger.debug(f'Variable entry is not a list.')
+            return False
+        for item in variable['entry']:
+            if not isinstance(item, dict) or '@name' not in item or 'type' not in item:
+                logger.debug(f'Missing keys @name and type. You provided {item}')
+                return False
+            if not isinstance(item['type'], dict) or len(item['type']) != 1:
+                logger.debug(f'Key type must be a dictionary with one key. You provided {item["type"]}.')
+                return False
+            type_key = next(iter(item['type']))
+            if type_key not in self.variable_types or not isinstance(item['type'][type_key], str):
+                logger.debug(f"Key type is not valid. For variable {item['@name']}, you provided {type_key} "
+                             f"as type {type(item['type'][type_key])}. Value is {item['type'][type_key]}.")
+                return False
+        return True
 
     @property
     def devices(self):
