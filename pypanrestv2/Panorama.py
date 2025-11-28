@@ -403,13 +403,24 @@ class TemplateStacks(PanoramaTab):
             raise ValueError("Invalid variable structure")
 
     def validate_variable_structure(self, variable: Dict) -> bool:
-        if not isinstance(variable, dict) or 'entry' not in variable:
-            logger.debug(f'Variable is not a Dictionary or entry not in variable.')
+        if not isinstance(variable, dict):
+            logger.debug(f'Variable is not a Dictionary.')
             return False
-        if not isinstance(variable['entry'], list):
+
+        # Treat missing or empty 'entry' as a valid empty variable container
+        entry_list = variable.get('entry', [])
+        if entry_list in (None, ''):
+            entry_list = []
+
+        if not isinstance(entry_list, list):
             logger.debug(f'Variable entry is not a list.')
             return False
-        for item in variable['entry']:
+
+        if not entry_list:
+            # An empty variable block is acceptable (no variables defined yet)
+            return True
+
+        for item in entry_list:
             if not isinstance(item, dict) or '@name' not in item or 'type' not in item:
                 logger.debug(f'Missing keys @name and type. You provided {item}')
                 return False
@@ -443,8 +454,19 @@ class TemplateStacks(PanoramaTab):
         for item in devices['entry']:
             if not isinstance(item, dict) or '@name' not in item:
                 return False
-            if 'variable' in item and not self.validate_variable_structure(item['variable']):
-                return False
+            if 'variable' in item:
+                var_block = item['variable']
+                # Allow empty dict or {'entry': []} as "no variables yet"
+                if isinstance(var_block, dict):
+                    entry_list = var_block.get('entry', [])
+                    if entry_list in (None, ''):
+                        entry_list = []
+                    if entry_list:
+                        # Only run full validation when there are actual entries
+                        if not self.validate_variable_structure(var_block):
+                            return False
+                else:
+                    return False
         return True
 
     def set_variable(self, device_name, variable_name, variable_value, variable_type, variable_descriotion=None):
