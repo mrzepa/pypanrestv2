@@ -314,13 +314,21 @@ class TemplateStacks(PanoramaTab):
             self._ensure_device_variables_container(device_entry)
 
             variable_found = False
-            for var_entry in device_entry['variable']['entry']:
+            # Use get() accessors to avoid KeyError if the container wasn't
+            # fully normalized for some reason.
+            for var_entry in device_entry.get('variable', {}).get('entry', []):
                 if var_entry.get('@name') == variable_name:
                     var_entry['type'] = {variable_type: variable_value}
                     variable_found = True
                     break
 
             if not variable_found:
+                # Ensure the entry list exists before appending
+                if 'variable' not in device_entry or not isinstance(device_entry['variable'], dict):
+                    device_entry['variable'] = {'entry': []}
+                if 'entry' not in device_entry['variable'] or not isinstance(device_entry['variable']['entry'], list):
+                    device_entry['variable']['entry'] = []
+
                 device_entry['variable']['entry'].append({
                     '@name': variable_name,
                     'type': {variable_type: variable_value}
