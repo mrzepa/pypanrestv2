@@ -390,9 +390,9 @@ class TemplateStacks(PanoramaTab):
             return False
         return True
 
-    @property
-    def variable(self):
-        return self._variable
+    # @property
+    # def variable(self):
+    #     return self._variable
 
     # @variable.setter
     # def variable(self, value: Dict):
