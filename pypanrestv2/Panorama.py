@@ -159,8 +159,26 @@ class TemplateStacks(PanoramaTab):
             self.entry['devices'] = self.devices
 
     def _ensure_device_variables_container(self, device_entry: Dict[str, Any]) -> None:
-        if 'variable' not in device_entry or not isinstance(device_entry['variable'], dict):
+        """Ensure a device has a well-formed variable container.
+
+        Normalizes any of the following into ``{'entry': []}``:
+        - Missing ``variable`` key.
+        - ``variable`` set to ``None`` or a non-dict value.
+        - ``variable`` as an empty dict or a dict without ``'entry'``.
+        - ``variable['entry']`` present but not a list.
+        """
+
+        var_block = device_entry.get('variable')
+
+        # If there is no variable block or it is not a dict, create a new one
+        if not isinstance(var_block, dict):
             device_entry['variable'] = {'entry': []}
+            return
+
+        # Ensure there is an 'entry' list
+        entry = var_block.get('entry')
+        if not isinstance(entry, list):
+            device_entry['variable']['entry'] = []
 
     def add_device(self, name: str, variables: Optional[Dict] = None) -> bool:
         self._ensure_devices_container()
