@@ -374,14 +374,23 @@ class TemplateStacks(PanoramaTab):
         def extract_variables():
             variables = []
             device = self.devices['entry'][0]  # Fetch the first device
-            if 'variable' in device:
-                for var in device['variable']['entry']:
-                    # Extract the type key and set its value to None
-                    key_name = next(iter(var['type']))  # Get the first (only) key in the type dictionary
-                    variables.append({
-                        '@name': var['@name'],
-                        'type': {key_name: None}
-                    })
+            var_block = device.get('variable', {}) if isinstance(device, dict) else {}
+            entry_list = []
+            if isinstance(var_block, dict):
+                raw_entry = var_block.get('entry', [])
+                if isinstance(raw_entry, list):
+                    entry_list = raw_entry
+
+            for var in entry_list:
+                if not isinstance(var, dict) or 'type' not in var or '@name' not in var:
+                    continue
+                # Extract the type key and set its value to None
+                key_name = next(iter(var['type']))  # Get the first (only) key in the type dictionary
+                variables.append({
+                    '@name': var['@name'],
+                    'type': {key_name: None}
+                })
+
             self.variable['entry'] = variables
             return variables
 
