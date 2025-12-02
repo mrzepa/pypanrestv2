@@ -261,9 +261,9 @@ class TemplateStacks(PanoramaTab):
             self.add_device(device_serial)
 
         # For pre-shared-key, allow callers to pass a simple string and wrap
-        # it as {'value': <string>} for convenience.
+        # it as {'key': <string>} for convenience.
         if var_type_key == 'pre-shared-key' and isinstance(value, str):
-            prepared_value: Any = {'value': value}
+            prepared_value: Any = {'key': value}
         else:
             prepared_value = value
 
@@ -321,9 +321,9 @@ class TemplateStacks(PanoramaTab):
             self._ensure_device_variables_container(device_entry)
 
             # For pre-shared-key we accept either a dict({'key'/'value'}) or a
-            # plain string (convenience, wrapped as {'value': <str>}).
+            # plain string (convenience, wrapped as {'key': <str>}).
             if variable_type == 'pre-shared-key' and isinstance(variable_value, str):
-                normalized_value: Any = {'value': variable_value}
+                normalized_value: Any = {'key': variable_value}
             else:
                 normalized_value = variable_value
 
