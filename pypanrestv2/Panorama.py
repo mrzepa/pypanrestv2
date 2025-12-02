@@ -211,7 +211,7 @@ class TemplateStacks(PanoramaTab):
         self,
         device_serial: str,
         variable_name: str,
-        value: str,
+        value: Any,
         create_device_if_missing: bool = True,
     ) -> None:
         """Set a per-device variable value using only serial, name, and value.
@@ -260,8 +260,15 @@ class TemplateStacks(PanoramaTab):
         if not device_exists and create_device_if_missing:
             self.add_device(device_serial)
 
+        # For pre-shared-key, allow callers to pass a simple string and wrap
+        # it as {'value': <string>} for convenience.
+        if var_type_key == 'pre-shared-key' and isinstance(value, str):
+            prepared_value: Any = {'value': value}
+        else:
+            prepared_value = value
+
         # Delegate to the lower-level helper that knows about types
-        self.update_device_variable(device_serial, variable_name, var_type_key, value)
+        self.update_device_variable(device_serial, variable_name, var_type_key, prepared_value)
 
     def _infer_variable_type(self, variable_name: str) -> Optional[str]:
         """Return the variable type key for a given variable name, if known.
@@ -301,7 +308,7 @@ class TemplateStacks(PanoramaTab):
             self.entry['variable'] = self.variable
 
     def update_device_variable(self, device_name: str, variable_name: str, variable_type: str,
-                               variable_value: str) -> None:
+                               variable_value: Any) -> None:
         if variable_type not in self.variable_types:
             return
 
@@ -318,7 +325,13 @@ class TemplateStacks(PanoramaTab):
             # fully normalized for some reason.
             for var_entry in device_entry.get('variable', {}).get('entry', []):
                 if var_entry.get('@name') == variable_name:
-                    var_entry['type'] = {variable_type: variable_value}
+                    if variable_type == 'pre-shared-key':
+                        # Expect a dict with one of 'key' or 'value'
+                        if not isinstance(variable_value, dict):
+                            raise ValueError("pre-shared-key variable_value must be a dict with 'key' or 'value'.")
+                        var_entry['type'] = {variable_type: variable_value}
+                    else:
+                        var_entry['type'] = {variable_type: variable_value}
                     variable_found = True
                     break
 
@@ -329,9 +342,16 @@ class TemplateStacks(PanoramaTab):
                 if 'entry' not in device_entry['variable'] or not isinstance(device_entry['variable']['entry'], list):
                     device_entry['variable']['entry'] = []
 
+                if variable_type == 'pre-shared-key':
+                    if not isinstance(variable_value, dict):
+                        raise ValueError("pre-shared-key variable_value must be a dict with 'key' or 'value'.")
+                    payload = {variable_type: variable_value}
+                else:
+                    payload = {variable_type: variable_value}
+
                 device_entry['variable']['entry'].append({
                     '@name': variable_name,
-                    'type': {variable_type: variable_value}
+                    'type': payload
                 })
 
             self.entry['devices'] = self.devices
@@ -462,11 +482,33 @@ class TemplateStacks(PanoramaTab):
             if not isinstance(item['type'], dict) or len(item['type']) != 1:
                 logger.debug(f'Key type must be a dictionary with one key. You provided {item["type"]}.')
                 return False
+
             type_key = next(iter(item['type']))
-            if type_key not in self.variable_types or not isinstance(item['type'][type_key], str):
-                logger.debug(f"Key type is not valid. For variable {item['@name']}, you provided {type_key} "
-                             f"as type {type(item['type'][type_key])}. Value is {item['type'][type_key]}.")
+            type_val = item['type'][type_key]
+
+            if type_key not in self.variable_types:
+                logger.debug(f"Key type {type_key} is not in allowed variable_types for {item['@name']}.")
                 return False
+
+            # Special handling for pre-shared-key: value is a dict with 'key' or 'value' (string)
+            if type_key == 'pre-shared-key':
+                if not isinstance(type_val, dict):
+                    logger.debug(f"pre-shared-key value must be a dict; got {type(type_val)} for {item['@name']}.")
+                    return False
+                if not any(k in type_val for k in ('key', 'value')):
+                    logger.debug(f"pre-shared-key dict must contain 'key' or 'value' for {item['@name']}: {type_val}.")
+                    return False
+                # Ensure any present key/value fields are strings
+                for k in ('key', 'value'):
+                    if k in type_val and not isinstance(type_val[k], str):
+                        logger.debug(f"pre-shared-key field {k!r} must be str for {item['@name']}, got {type(type_val[k])}.")
+                        return False
+            else:
+                # All other types must have a simple string value
+                if not isinstance(type_val, str):
+                    logger.debug(f"Key type is not valid. For variable {item['@name']}, you provided {type_key} "
+                                 f"as type {type(type_val)}. Value is {type_val}.")
+                    return False
         return True
 
     @property
