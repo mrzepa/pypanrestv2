@@ -320,6 +320,13 @@ class TemplateStacks(PanoramaTab):
 
             self._ensure_device_variables_container(device_entry)
 
+            # For pre-shared-key we accept either a dict({'key'/'value'}) or a
+            # plain string (convenience, wrapped as {'value': <str>}).
+            if variable_type == 'pre-shared-key' and isinstance(variable_value, str):
+                normalized_value: Any = {'value': variable_value}
+            else:
+                normalized_value = variable_value
+
             variable_found = False
             # Use get() accessors to avoid KeyError if the container wasn't
             # fully normalized for some reason.
@@ -327,11 +334,11 @@ class TemplateStacks(PanoramaTab):
                 if var_entry.get('@name') == variable_name:
                     if variable_type == 'pre-shared-key':
                         # Expect a dict with one of 'key' or 'value'
-                        if not isinstance(variable_value, dict):
+                        if not isinstance(normalized_value, dict):
                             raise ValueError("pre-shared-key variable_value must be a dict with 'key' or 'value'.")
-                        var_entry['type'] = {variable_type: variable_value}
+                        var_entry['type'] = {variable_type: normalized_value}
                     else:
-                        var_entry['type'] = {variable_type: variable_value}
+                        var_entry['type'] = {variable_type: normalized_value}
                     variable_found = True
                     break
 
@@ -343,11 +350,11 @@ class TemplateStacks(PanoramaTab):
                     device_entry['variable']['entry'] = []
 
                 if variable_type == 'pre-shared-key':
-                    if not isinstance(variable_value, dict):
+                    if not isinstance(normalized_value, dict):
                         raise ValueError("pre-shared-key variable_value must be a dict with 'key' or 'value'.")
-                    payload = {variable_type: variable_value}
+                    payload = {variable_type: normalized_value}
                 else:
-                    payload = {variable_type: variable_value}
+                    payload = {variable_type: normalized_value}
 
                 device_entry['variable']['entry'].append({
                     '@name': variable_name,
